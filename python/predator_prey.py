@@ -694,6 +694,7 @@ class PredatorPreyModel:
         df_projection: Union[pd.DataFrame, None] = None,
         dict_metrics: Union[dict, None] = None,
         figsize: Tuple[int, int] = (15, 10),
+        ax: Union[numpy.ndarray, None] = None,
     ) -> plt.plot:
         """
         Plot the population of prey, predators, and harvest from a model 
@@ -710,6 +711,7 @@ class PredatorPreyModel:
             If None, defautls to self.dict_metrics_last (outputs from the last
             model run)
         - figsize: default figure size to use
+        - ax: optional axis to pass
         """
         
         ##  INITIALIZE
@@ -755,8 +757,9 @@ class PredatorPreyModel:
                 else False
             )
 
-        figsize = (15, 10) if not accept_fs else figsize
-        fig, ax = plt.subplots(figsize = figsize, )
+        if ax is None:
+            figsize = (15, 10) if not accept_fs else figsize
+            fig, ax = plt.subplots(figsize = figsize, )
         
         # get metrics
         npv = np.round(dict_metrics.get(self.field_npv), decimals = 4)
