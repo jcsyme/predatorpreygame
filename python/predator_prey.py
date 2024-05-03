@@ -694,7 +694,7 @@ class PredatorPreyModel:
         df_projection: Union[pd.DataFrame, None] = None,
         dict_metrics: Union[dict, None] = None,
         figsize: Tuple[int, int] = (15, 10),
-        ax: Union[numpy.ndarray, None] = None,
+        ax: Union[np.ndarray, None] = None,
     ) -> plt.plot:
         """
         Plot the population of prey, predators, and harvest from a model 
