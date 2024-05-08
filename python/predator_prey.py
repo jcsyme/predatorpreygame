@@ -7,6 +7,67 @@ import support_functions as sf
 import warnings
 
 
+class Strategy:
+    """
+    Simple class for storing strategy information
+    """
+
+    def __init__(self,
+        index: int,
+        function: Callable,
+        name: str,
+    ) -> None:
+
+        self._initialize_properties(
+            index,
+            function,
+            name,
+        )
+
+        return None
+
+    
+
+    def __call__(self,
+        *args,
+        **kwargs,
+    ) -> Any:
+
+        if self.function is None:
+            return None
+
+        # otherwise, return function value    
+        out = self.function(
+            *args,
+            **kwargs,
+        )
+
+        return out
+
+
+
+    def _initialize_properties(self,
+        index: int,
+        function: Callable,
+        name: str,
+    ) -> None:
+        """
+        Initialize elements of the strategy
+        """
+
+        function = function if isinstance(function, Callable) else None
+        index = index if sf.isnumber(index, integer = True) else None
+        name = str(name)
+
+
+        ##  SET PROPERTIES
+
+        self.function = function
+        self.index = index
+        self.name = name
+
+        return None
+
 
 
 class PredatorPreyModel:
@@ -42,6 +103,25 @@ class PredatorPreyModel:
         defaults
     - b_min: Default of 0.25. Minmium allowable value of b when subject to 
         climate change. 
+    - dict_strategies: optinoal dictionary mapping strategy names to a function, 
+        where each funciton has the following arguments:
+
+            function_name_here(
+                vec_prey,
+                vec_harvest,
+                temperature,
+                t,
+            )
+
+            EXAMPLE: 
+
+                an example dictionary would be 
+
+                dict_strategies = {
+                    "soft_constant": strategy_soft_constant,
+                    "other_strat": strategy_other,
+                }
+
     - discount_rate: discount rate to use for scoring harvests to calculate the
         net present value
     - field_a: field storing the value of the parameter a
@@ -69,6 +149,7 @@ class PredatorPreyModel:
         C: Union[float, int, None] = None,
         F0: Union[float, int, None] = None,
         b_min: Union[float, int, None] = None,
+        dict_strategies: Union[Dict[str, Tuple], None] = None,
         discount_rate: float = 0.05,
         gamma: Union[float, int, None] = None,
         **kwargs,
@@ -90,6 +171,9 @@ class PredatorPreyModel:
 
         self._initialize_fields(**kwargs, )
         self._initialize_properties()
+        self._initialize_strategies(
+            dict_strategies = dict_strategies,
+        )
         
         return None
     
@@ -350,6 +434,217 @@ class PredatorPreyModel:
     
 
 
+    def _initialize_strategies(self,
+        dict_strategies: Union[Dict[int, Tuple], None ] = None,
+    ) -> None:
+        """
+        Set the following climate-related parameters: 
+
+            * self.
+
+
+        Function Arguments
+        ------------------
+        
+        Keyword Arguments
+        -----------------
+        - dict_strategies: dictionary mapping strategy names to a function with
+            the following arguments
+
+            function_name_here(
+                vec_prey,
+                vec_harvest,
+                temperature,
+                t,
+            )
+
+            EXAMPLE: 
+
+                an example dictionary would be 
+
+                dict_strategies = {
+                    "soft_constant": strategy_soft_constant,
+                    "other_strat": strategy_other,
+                }
+        """
+
+        # space of values
+        self.all_strategy_names = []
+        self.all_strategy_indices = []
+        
+        # some dictionaries
+        self.dict_strategies = {}
+        self.dict_strategy_name_to_indices = {}
+        self.dict_strategy_index_to_name = {}
+
+        # initialize dictionary and spaces
+        dict_strategies_init = {
+            "baseline": self.constant_harvest
+        }
+        self._add_strategies(dict_strategies_init, ) 
+        self._add_strategies(dict_strategies, ) 
+
+        return None
+
+    
+
+
+    ############################
+    #    NON-INIT FUNCTIONS    #
+    ############################
+
+    def _add_strategies(self,
+        dict_strategies_to_functions: Dict[str, Tuple],
+    ) -> None:
+        """
+        Add strategies in dict_strategies_to_functions to the model
+        
+        Function Arguments
+        ------------------
+        - dict_strategies: dictionary mapping strategy names to a function with
+            the following arguments
+
+            function_name_here(
+                vec_prey,
+                vec_harvest,
+                temperature,
+                t,
+            )
+
+            EXAMPLE: 
+
+                an example dictionary would be 
+
+                dict_strategies = {
+                    "soft_constant": strategy_soft_constant,
+                    "other_strat": strategy_other,
+                }
+        """
+
+        # initialize the index
+        ind = (
+            max(self.all_strategy_indices) + 1
+            if len(self.all_strategy_indices) > 0
+            else 0
+        )
+
+        
+        if not isinstance(dict_strategies_to_functions, dict):
+            return None
+
+        # iterate
+        for k, v in dict_strategies_to_functions.items():
+
+            nm = str(k)
+
+            # check the function is valid; if not, skip
+            try:
+                self.verify_strategy_function(
+                    v, 
+                    stop_on_error = True, 
+                )
+            
+            except Exception as e:
+                continue
+            
+            strat = Strategy(
+                ind,
+                v,
+                nm
+            )
+
+            self.all_strategy_indices.append(ind)
+            self.all_strategy_names.append(nm)
+            self.dict_strategy_index_to_name.update({ind: nm})
+            self.dict_strategy_name_to_indices.update({nm: ind})
+            self.dict_strategies.update({nm: strat})
+
+            ind += 1
+
+        return None
+    
+
+
+    def get_strategy(self,
+        ind_specification: Union[str, int],
+    ) -> Union[Strategy, None]:
+        """
+        Return a strategy based on a name (string) or index (integer)
+        """
+
+        if isinstance(ind_specification, int):
+            ind_specification = self.dict_strategy_index_to_name.get(ind_specification)
+            if ind_specification is None:
+                return None
+
+        if not isinstance(ind_specification, str):
+            return None
+        
+        out = self.dict_strategies.get(ind_specification)
+
+        return out
+    
+
+
+    def verify_strategy_function(self,
+        z: callable,
+        stop_on_error: bool = False,
+    ) -> Union[callable, None]:
+        """
+        Verify a strategy function. If the input function is invalid, returns
+            the default constant harvest function (which defauls to 0 harvest)
+
+        NOTE: the strategy function must have the following ordered arguments:
+
+            * vec_prey: vector of prey populations (listlike)
+            * vec_harvest: vector of historical harvest (listlike)
+            * temp: temperature (number)
+            * t: time period (integer >= 0)
+
+        Function Arguments
+        ------------------
+        - z: function to check
+
+        Keyword Arguments
+        -----------------
+        - stop_on_error: throw an error if the function is invalid?
+        """
+
+        
+        # if not callable, return the constant harvest function
+        if not callable(z):
+
+            if stop_on_error:
+                tp = str(type(z))
+                msg = f"""
+                Error in verify_strategy_function(): invalid type '{tp}'
+                specified for z. Must be a Callable.
+                """
+                raise RuntimeError(msg)
+
+            return self.constant_harvest
+        
+        # get arguments and check
+        args, kwargs = sf.get_args(z)
+
+        acceptable = len(args) >= 4
+        acceptable &= (
+            args[0:4] == self.strategy_function_arguments_ordered
+            if acceptable
+            else False
+        )
+
+        func_out = z if acceptable else self.constant_harvest
+
+        return func_out
+
+    
+
+
+    ############################
+    #    CORE FUNCTIONALITY    #
+    ############################
+
     def get_climate_b(self,
         b0: Union[float, int],
         F: Union[float, int], 
@@ -517,6 +812,7 @@ class PredatorPreyModel:
             kwargs_pass = dict(
                 (k, v) for k, v in kwargs.items() if k not in ["F", "S"]
             )
+            kwargs_pass.update({"n_time_periods": n_time_periods})
 
             # if F or S are not specified, will return None
             vec_b = self.get_climate_b(b, F, S, **kwargs_pass)
@@ -538,55 +834,6 @@ class PredatorPreyModel:
         return vec_b
 
 
-
-    def verify_strategy_function(self,
-        z: callable,
-        stop_on_error: bool = False,
-    ) -> Union[callable, None]:
-        """
-        Verify a strategy function. If the input function is invalid, returns
-            the default constant harvest function (which defauls to 0 harvest)
-
-        NOTE: the strategy function must have the following ordered arguments:
-
-            * vec_prey: vector of prey populations (listlike)
-            * vec_harvest: vector of historical harvest (listlike)
-            * temp: temperature (number)
-            * t: time period (integer >= 0)
-
-        Function Arguments
-        ------------------
-        - z: function to check
-
-        Keyword Arguments
-        -----------------
-        - stop_on_error: throw an error if the function is invalid?
-        """
-
-        
-        # if not callable, return the constant harvest function
-        if not callable(z):
-            return self.constant_harvest
-        
-        # get arguments and check
-        args, kwargs = sf.get_args(z)
-
-        acceptable = len(args) >= 4
-        acceptable &= (
-            args[0:4] == self.strategy_function_arguments_ordered
-            if acceptable
-            else False
-        )
-
-        func_out = z if acceptable else self.constant_harvest
-
-        return func_out
-
-
-    
-    ############################
-    #    CORE FUNCTIONALITY    #
-    ############################
     
     def calculate_metrics(self,
         df_projection: pd.DataFrame,
@@ -695,6 +942,7 @@ class PredatorPreyModel:
         dict_metrics: Union[dict, None] = None,
         figsize: Tuple[int, int] = (15, 10),
         ax: Union[np.ndarray, None] = None,
+        **kwargs,
     ) -> plt.plot:
         """
         Plot the population of prey, predators, and harvest from a model 
@@ -717,24 +965,12 @@ class PredatorPreyModel:
         ##  INITIALIZE
         
         # check inputs
-        df_projection = (
-            self.df_projected_last
-            if not isinstance(df_projection, pd.DataFrame)
-            else df_projection
-        )
+        if not isinstance(df_projection, pd.DataFrame):
+            df_projection = self.df_projected_last
+            dict_metrics = self.dict_metrics_last
 
-        dict_metrics = (
-            self.dict_metrics_last
-            if not isinstance(dict_metrics, dict)
-            else dict_metrics_last
-        )
-
-        # return None if the projection is missing
-        if (df_projection is None):
-            return None
-        
-        # get metrics if they are missing for some reason
-        if dict_metrics is None:
+        # get metrics if they are missing 
+        if not isinstance(dict_metrics, dict):
             dict_metrics = self.calculate_metrics(df_projection)
         
         # get fields to plot
@@ -773,6 +1009,7 @@ class PredatorPreyModel:
                 ax = ax,
                 linewidth = 3,
                 title = f"Predator/Prey Populations and Harvest\n\nNPV = {npv}, Regret = {regret}",
+                **kwargs,
             )
         )
         
@@ -859,8 +1096,46 @@ class PredatorPreyModel:
         tup = self.get_project_return(tup, metrics_only)
 
         return tup
-
     
+
+
+    def project_ema(self,
+        a: Union[float, int] = 0.0,
+        b: Union[float, int, np.ndarray] = 0.0,
+        F: Union[float, int, None] = 0.0,
+        S: Union[float, int, None] = 0.0,
+        strategy: int = 0, # key in dict_strategies_to_functions
+        discount_rate: Union[float, None] = None, # will default to model default
+    ) -> pd.DataFrame:
+        """
+        Wrapper function to support analysis in EMA workbench. The keyword arguments are those that can be explored over using EMA.
+        """
+
+        #
+        z = self.get_strategy(strategy, )
+        if z is None:
+            raise RuntimeError(f"Invalid strategy {strategy}: strategy not found in PredatoryPreyModel")
+        
+        # project and get metrics
+        df_projection, dict_metrics = self.project(
+            a,
+            b,
+            F = F,
+            S = S,
+            discount_rate = discount_rate,
+            verify_strategy = False,
+            z = z.function,
+        )
+
+        # EMA reads outputs as a tuple
+        npv = dict_metrics.get(self.field_npv)
+        regret = dict_metrics.get(self.field_regret)
+        tup_out = (npv, regret)
+
+        return tup_out    
+
+
+
 
     def project_func(self,
         a: Union[float, int], 
