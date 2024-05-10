@@ -558,11 +558,11 @@ class PredatorPreyModel:
             
                 
             if nm in self.all_strategy_names:
-                
+
                 # if in the existing set, get the index and set a new strategy
                 strat = self.get_strategy(nm)
                 strat = Strategy(
-                    strat.ind,
+                    strat.index,
                     v,
                     nm
                 )
