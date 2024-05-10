@@ -545,7 +545,7 @@ class PredatorPreyModel:
             nm = str(k)
             if (nm in self.all_strategy_names) and not overwrite_strategies:
                 continue
-            
+
             # check the function is valid; if not, skip
             try:
                 self.verify_strategy_function(
@@ -556,19 +556,35 @@ class PredatorPreyModel:
             except Exception as e:
                 continue
             
-            strat = Strategy(
-                ind,
-                v,
-                nm
-            )
+                
+            if nm in self.all_strategy_names:
+                
+                # if in the existing set, get the index and set a new strategy
+                strat = self.get_strategy(nm)
+                strat = Strategy(
+                    strat.ind,
+                    v,
+                    nm
+                )
 
-            self.all_strategy_indices.append(ind)
-            self.all_strategy_names.append(nm)
+            else:
+                
+                # assign the new strategy a new index, append information, and increase the index
+                strat = Strategy(
+                    ind,
+                    v,
+                    nm
+                )
+
+                self.all_strategy_indices.append(ind)
+                self.all_strategy_names.append(nm)
+                ind += 1
+
+            # update dictionaries
             self.dict_strategy_index_to_name.update({ind: nm})
             self.dict_strategy_name_to_indices.update({nm: ind})
             self.dict_strategies.update({nm: strat})
-
-            ind += 1
+        
 
         return None
     
