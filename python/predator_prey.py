@@ -495,6 +495,7 @@ class PredatorPreyModel:
 
     def _add_strategies(self,
         dict_strategies_to_functions: Dict[str, Tuple],
+        overwrite_strategies: bool = False,
     ) -> None:
         """
         Add strategies in dict_strategies_to_functions to the model
@@ -519,6 +520,12 @@ class PredatorPreyModel:
                     "soft_constant": strategy_soft_constant,
                     "other_strat": strategy_other,
                 }
+
+        Keyword Arguments
+        -----------------
+        - overwrite_strategies: if True, will overwrite an existing strategy if
+             a new one with the same name is specified in dict_strategies
+
         """
 
         # initialize the index
@@ -536,7 +543,9 @@ class PredatorPreyModel:
         for k, v in dict_strategies_to_functions.items():
 
             nm = str(k)
-
+            if (nm in self.all_strategy_names) and not overwrite_strategies:
+                continue
+            
             # check the function is valid; if not, skip
             try:
                 self.verify_strategy_function(
