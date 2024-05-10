@@ -581,8 +581,8 @@ class PredatorPreyModel:
                 ind += 1
 
             # update dictionaries
-            self.dict_strategy_index_to_name.update({strat.ind: nm})
-            self.dict_strategy_name_to_indices.update({nm: strat.ind})
+            self.dict_strategy_index_to_name.update({strat.index: nm})
+            self.dict_strategy_name_to_indices.update({nm: strat.index})
             self.dict_strategies.update({nm: strat})
         
 
